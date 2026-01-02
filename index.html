@@ -720,6 +720,7 @@
         const exceedanceCountEl = document.getElementById('exceedanceCount');
         const exceedanceDurationEl = document.getElementById('exceedanceDuration');
 
+
         function interpolateColor(color1, color2, factor) {
             const c1 = color1.match(/\w\w/g).map(x => parseInt(x, 16));
             const c2 = color2.match(/\w\w/g).map(x => parseInt(x, 16));
@@ -730,6 +731,7 @@
 
             return `rgb(${result[0]}, ${result[1]}, ${result[2]})`;
         }
+
         function getBackgroundColor(db, safe, warn, danger) {
             if (warn <= safe) warn = safe + 1;
             if (danger <= warn) danger = warn + 1;
@@ -798,7 +800,14 @@
                 }
 
                 if (!microphone) {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: false
+                        }
+                    });
+
                     microphone = audioContext.createMediaStreamSource(stream);
                     
                     analyser = audioContext.createAnalyser();
@@ -1068,5 +1077,6 @@
         });
     }
     </script>
+    <script src="app.js"></script>
 </body>
 </html>
