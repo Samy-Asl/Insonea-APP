@@ -139,10 +139,10 @@ async function startMonitoring() {
         }
 
         isMonitoring = true;
-        addLog('✅ Monitoring démarré');
+        addLog(' Monitoring démarré');
         monitor();
     } catch (error) {
-        addLog(`❌ Erreur: ${error.message}`, true);
+        addLog(' Erreur: ${error.message}`, true);
         startBtn.disabled = false;
         stopBtn.disabled = true;
         if (error.name === 'NotAllowedError') {
@@ -172,7 +172,7 @@ function stopMonitoring() {
     stopBtn.disabled = true;
     statusIndicator.className = 'status-indicator safe';
     statusLabel.textContent = 'Arrêté';
-    addLog('⏹️ Monitoring arrêté');
+    addLog(' Monitoring arrêté');
 }
 
 function calculateDecibels() {
@@ -190,14 +190,14 @@ function calculateDecibels() {
 async function sendDailyReport(email) {
     if (!email) return;
     const now = new Date();
-    const reportContent = `Rapport Journalier Insonea - ${dailyStats.date}\n\n📊 Statistiques:\n• Min: ${dailyStats.minLevel.toFixed(1)} dB\n• Max: ${dailyStats.maxLevel.toFixed(1)} dB\n• Moy: ${dailyStats.avgLevel.toFixed(1)} dB\n• Pic: ${dailyStats.peakLevel.toFixed(1)} dB\n\n🔔 Dépassements: ${dailyStats.exceedanceCount}\n⏱️ Durée: ${Math.floor(dailyStats.exceedanceDuration / 1000)}s`;
+    const reportContent = `Rapport Journalier Insonea - ${dailyStats.date}\n\n Statistiques:\n• Min: ${dailyStats.minLevel.toFixed(1)} dB\n• Max: ${dailyStats.maxLevel.toFixed(1)} dB\n• Moy: ${dailyStats.avgLevel.toFixed(1)} dB\n• Pic: ${dailyStats.peakLevel.toFixed(1)} dB\n\n Dépassements: ${dailyStats.exceedanceCount}\n Durée: ${Math.floor(dailyStats.exceedanceDuration / 1000)}s`;
     try {
         await fetch('/api/send-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, subject: `📊 Rapport Insonea - ${dailyStats.date}`, message: reportContent, timestamp: new Date().toISOString() })
+            body: JSON.stringify({ email, subject: ` Rapport Insonea - ${dailyStats.date}`, message: reportContent, timestamp: new Date().toISOString() })
         });
-        addLog(`📧 Rapport envoyé à ${email}`);
+        addLog(` Rapport envoyé à ${email}`);
     } catch (error) {
         console.error('Erreur rapport:', error);
     }
@@ -274,7 +274,7 @@ function monitor() {
 
 
     let status = 'safe';
-    let label = '✅ Sûr';
+    let label = 'Sûr';
     
     const isAboveThreshold = currentLevel >= warningThreshold;
     
@@ -348,7 +348,7 @@ function installPWA() {
         deferredPrompt.prompt();
         deferredPrompt.userChoice.then((choiceResult) => {
             if (choiceResult.outcome === 'accepted') {
-                addLog('✅ Insonea installée');
+                addLog('INsonea installée');
                 installPrompt.classList.remove('active');
             }
             deferredPrompt = null;
