@@ -27,7 +27,7 @@
         </header>
 
         <div class="install-prompt" id="installPrompt">
-            <p>📱 Installer comme app ?</p>
+            <p> Installer comme app ?</p>
             <div style="display: flex; gap: 8px;">
                 <button class="install-btn install-btn-primary" onclick="installPWA()">✓ Installer</button>
                 <button class="install-btn install-btn-secondary" onclick="dismissInstall()">✕ Plus tard</button>
@@ -35,16 +35,16 @@
         </div>
 
         <div class="permission-prompt" id="permissionPrompt">
-            <p>⚠️ Accès au microphone requis. Cliquez sur "Démarrer".</p>
+            <p> Accès au microphone requis. Cliquez sur "Démarrer".</p>
         </div>
 
         <div class="stats-banner">
             <div class="stat-item">
-                <div class="stat-label">🔔 Dépassements</div>
+                <div class="stat-label"> Dépassements</div>
                 <div class="stat-value" id="exceedanceCount">0</div>
             </div>
             <div class="stat-item">
-                <div class="stat-label">⏱️ Durée</div>
+                <div class="stat-label"> Durée</div>
                 <div class="stat-value" id="exceedanceDuration">0s</div>
             </div>
         </div>
@@ -63,9 +63,9 @@
         </div>
 
         <div class="controls">
-            <button class="btn btn-start" id="startBtn" onclick="startMonitoring()">▶️ Démarrer</button>
-            <button class="btn btn-stop" id="stopBtn" onclick="stopMonitoring()" disabled>⏹️ Arrêter</button>
-            <button class="btn btn-stop" id="bilanBtn" onclick="generateBilan()" disabled>📊 Bilan</button>
+            <button class="btn btn-start" id="startBtn" onclick="startMonitoring()"> Démarrer</button>
+            <button class="btn btn-stop" id="stopBtn" onclick="stopMonitoring()" disabled> Arrêter</button>
+            <button class="btn btn-stop" id="bilanBtn" onclick="generateBilan()" disabled> Bilan</button>
         </div>
 
         <div class="info-grid">
@@ -80,11 +80,11 @@
         </div>
 
         <div class="settings-toggle" onclick="toggleSettings()">
-            <button class="settings-toggle-btn">⚙️ Configuration </button>
+            <button class="settings-toggle-btn"> Configuration </button>
         </div>
 
         <div class="settings-section" id="settingsSection">
-            <h3>⚙️ Configuration</h3>
+            <h3> Configuration</h3>
             <div class="input-group">
                 <label for="warningThreshold">Seuil Alerte (dB)</label>
                 <input type="number" id="warningThreshold" value="85" min="60" max="130" step="1">
@@ -104,15 +104,15 @@
 
             <div class="threshold-display">
                 <div class="threshold-box">
-                    <div class="label safe">🟢 Safe</div>
+                    <div class="label safe"> Safe</div>
                     <div class="value safe" id="thresholdSafe">85</div>
                 </div>
                 <div class="threshold-box">
-                    <div class="label warn">🟠 Alerte</div>
+                    <div class="label warn"> Alerte</div>
                     <div class="value warn" id="thresholdWarning">85</div>
                 </div>
                 <div class="threshold-box">
-                    <div class="label danger">🔴 Danger</div>
+                    <div class="label danger"> Danger</div>
                     <div class="value danger" id="thresholdDanger">100</div>
                 </div>
             </div>
@@ -122,27 +122,27 @@
             <div class="log-item">En attente de démarrage...</div>
         </div>
             <div class="bilan-section" id="bilanSection">
-        <h3>📊 Bilan du monitoring</h3>
+        <h3> Bilan du monitoring</h3>
 
         <div class="bilan-grid">
             <div class="bilan-item">
-                <span>⏱️ Durée</span>
+                <span> Durée</span>
                 <strong id="bilanDuration">–</strong>
             </div>
             <div class="bilan-item">
-                <span>📈 Moyenne</span>
+                <span> Moyenne</span>
                 <strong id="bilanAverage">–</strong>
             </div>
             <div class="bilan-item">
-                <span>🚀 Pic</span>
+                <span> Pic</span>
                 <strong id="bilanPeak">–</strong>
             </div>
             <div class="bilan-item">
-                <span>🔔 Dépassements</span>
+                <span> Dépassements</span>
                 <strong id="bilanExceedances">–</strong>
             </div>
             <div class="bilan-item full">
-                <span>🧠 Verdict</span>
+                <span> Verdict</span>
                 <strong id="bilanVerdict">–</strong>
             </div>
         </div>
