@@ -115,12 +115,12 @@ async function startMonitoring() {
 
         if (audioContext.state === 'suspended') {
             await audioContext.resume();
-            addLog('🔊 AudioContext repris');
+            addLog('AudioContext repris');
         }
 
         if (!microphone) {
             const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
+                audio: {
                     echoCancellation: true,
                     noiseSuppression: true,
                     autoGainControl: false
@@ -139,10 +139,10 @@ async function startMonitoring() {
         }
 
         isMonitoring = true;
-        addLog(' Monitoring démarré');
+        addLog('Monitoring demarre');
         monitor();
     } catch (error) {
-        addLog(' Erreur: ${error.message}`, true);
+        addLog(`Erreur: ${error.message}`, true);
         startBtn.disabled = false;
         stopBtn.disabled = true;
         if (error.name === 'NotAllowedError') {
@@ -171,8 +171,8 @@ function stopMonitoring() {
     startBtn.disabled = false;
     stopBtn.disabled = true;
     statusIndicator.className = 'status-indicator safe';
-    statusLabel.textContent = 'Arrêté';
-    addLog(' Monitoring arrêté');
+    statusLabel.textContent = 'Arrete';
+    addLog('Monitoring arrete');
 }
 
 function calculateDecibels() {
@@ -190,14 +190,19 @@ function calculateDecibels() {
 async function sendDailyReport(email) {
     if (!email) return;
     const now = new Date();
-    const reportContent = `Rapport Journalier Insonea - ${dailyStats.date}\n\n Statistiques:\n• Min: ${dailyStats.minLevel.toFixed(1)} dB\n• Max: ${dailyStats.maxLevel.toFixed(1)} dB\n• Moy: ${dailyStats.avgLevel.toFixed(1)} dB\n• Pic: ${dailyStats.peakLevel.toFixed(1)} dB\n\n Dépassements: ${dailyStats.exceedanceCount}\n Durée: ${Math.floor(dailyStats.exceedanceDuration / 1000)}s`;
+    const reportContent = `Rapport Journalier Insonea - ${dailyStats.date}\n\nStatistiques:\n• Min: ${dailyStats.minLevel.toFixed(1)} dB\n• Max: ${dailyStats.maxLevel.toFixed(1)} dB\n• Moy: ${dailyStats.avgLevel.toFixed(1)} dB\n• Pic: ${dailyStats.peakLevel.toFixed(1)} dB\n\nDepassements: ${dailyStats.exceedanceCount}\nDuree: ${Math.floor(dailyStats.exceedanceDuration / 1000)}s`;
     try {
         await fetch('/api/send-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, subject: ` Rapport Insonea - ${dailyStats.date}`, message: reportContent, timestamp: new Date().toISOString() })
+            body: JSON.stringify({ 
+                email, 
+                subject: `Rapport Insonea - ${dailyStats.date}`, 
+                message: reportContent, 
+                timestamp: new Date().toISOString() 
+            })
         });
-        addLog(` Rapport envoyé à ${email}`);
+        addLog(`Rapport envoye a ${email}`);
     } catch (error) {
         console.error('Erreur rapport:', error);
     }
@@ -274,7 +279,7 @@ function monitor() {
 
 
     let status = 'safe';
-    let label = 'Sûr';
+    let label = 'Sur';
     
     const isAboveThreshold = currentLevel >= warningThreshold;
     
@@ -300,13 +305,16 @@ function monitor() {
     }
     if (currentLevel >= dangerThreshold) {
         status = 'danger';
-        label = '🔴 DANGER';
+        label = 'DANGER';
         const now = Date.now();
         if (!lastNotificationTime['danger'] || now - lastNotificationTime['danger'] > 30000) {
             if (!notificationPending) {
                 notificationPending = true;
                 if ('Notification' in window && Notification.permission === 'granted') {
-                    new Notification('🔴 DANGER', { body: `${Math.round(currentLevel)} dB`, tag: 'insonea-alert' });
+                    new Notification('DANGER', { 
+                        body: `${Math.round(currentLevel)} dB`, 
+                        tag: 'insonea-alert' 
+                    });
                 }
                 lastNotificationTime['danger'] = now;
                 setTimeout(() => { notificationPending = false; }, 100);
@@ -314,7 +322,7 @@ function monitor() {
         }
     } else if (currentLevel >= warningThreshold) {
         status = 'warning';
-        label = '🟠 ALERTE';
+        label = 'ALERTE';
     }
 
     statusIndicator.className = `status-indicator ${status}`;
@@ -348,7 +356,7 @@ function installPWA() {
         deferredPrompt.prompt();
         deferredPrompt.userChoice.then((choiceResult) => {
             if (choiceResult.outcome === 'accepted') {
-                addLog('INsonea installée');
+                addLog('INsonea installee');
                 installPrompt.classList.remove('active');
             }
             deferredPrompt = null;
@@ -367,6 +375,7 @@ function toggleSettings() {
 }
 
 updateThresholdValues();
+
 function generateBilan() {
     const durationMs = exceedanceDuration;
     const durationSec = Math.floor(durationMs / 1000);
@@ -378,9 +387,9 @@ function generateBilan() {
     document.getElementById('bilanPeak').textContent = `${dailyStats.peakLevel.toFixed(1)} dB`;
     document.getElementById('bilanExceedances').textContent = dailyStats.exceedanceCount;
 
-    let verdict = '🟢 Exposition maîtrisée';
-    if (dailyStats.exceedanceCount > 5) verdict = '🟠 Attention à l’exposition';
-    if (dailyStats.exceedanceCount > 15) verdict = '🔴 Risque auditif élevé';
+    let verdict = 'Exposition maitrisee';
+    if (dailyStats.exceedanceCount > 5) verdict = 'Attention a l\'exposition';
+    if (dailyStats.exceedanceCount > 15) verdict = 'Risque auditif eleve';
 
     document.getElementById('bilanVerdict').textContent = verdict;
 
