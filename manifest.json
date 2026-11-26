@@ -1,7 +1,7 @@
 {
   "name": "Insonea",
   "short_name": "Insonea",
-  "description": "Détecteur de décibels",
+  "description": "Suivi du niveau sonore estimé",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#320763",

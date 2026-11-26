@@ -506,10 +506,6 @@ header p {
     margin-top: 4px;
 }
 
-.bilan-item.full {
-    grid-column: span 2;
-}
-
 
 @media (max-width: 480px) {
     .container {
