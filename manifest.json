@@ -4,8 +4,8 @@
   "description": "Suivi du niveau sonore estimé",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#320763",
-  "theme_color": "#320763",
+  "background_color": "#100e16",
+  "theme_color": "#171322",
   "orientation": "portrait",
   "icons": [
     {
