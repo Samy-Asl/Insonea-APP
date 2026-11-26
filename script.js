@@ -1,30 +1,20 @@
 let audioContext;
+let audioStream;
 let analyser;
 let microphone;
 let isMonitoring = false;
 let dataArray;
-let bufferLength;
-let peakLevel = 0;
-let levelHistory = [];
+let animationFrameId = null;
+let lastNotificationTime = -Infinity;
+const levelHistory = [];
 const MAX_HISTORY = 16;
+const LEVEL_REFERENCE = 94;
 const bilanBtn = document.getElementById('bilanBtn');
 
 let exceedanceCount = 0;
 let exceedanceDuration = 0;
 let exceedanceStartTime = null;
-let lastExceedanceThreshold = 0;
-
-let dailyStats = {
-    date: new Date().toLocaleDateString('fr-FR'),
-    minLevel: 130,
-    maxLevel: 0,
-    avgLevel: 0,
-    totalReadings: 0,
-    levelSum: 0,
-    exceedanceCount: 0,
-    exceedanceDuration: 0,
-    peakLevel: 0
-};
+let sessionStats;
 
 const dbValue = document.getElementById('dbValue');
 const statusIndicator = document.getElementById('statusIndicator');
@@ -38,6 +28,14 @@ const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const exceedanceCountEl = document.getElementById('exceedanceCount');
 const exceedanceDurationEl = document.getElementById('exceedanceDuration');
+const safeThresholdInput = document.getElementById('safeThreshold');
+const warningThresholdInput = document.getElementById('warningThreshold');
+const dangerThresholdInput = document.getElementById('dangerThreshold');
+let thresholds = {
+    safe: safeThresholdInput.valueAsNumber,
+    warning: warningThresholdInput.valueAsNumber,
+    danger: dangerThresholdInput.valueAsNumber
+};
 
 
 function interpolateColor(color1, color2, factor) {
@@ -52,9 +50,6 @@ function interpolateColor(color1, color2, factor) {
 }
 
 function getBackgroundColor(db, safe, warn, danger) {
-    if (warn <= safe) warn = safe + 1;
-    if (danger <= warn) danger = warn + 1;
-
     if (db <= safe) {
         return '#7ed6df';
     }
@@ -90,239 +85,201 @@ function addLog(message, isAlert = false) {
 }
 
 function updateThresholdValues() {
-    const safeThreshold = parseInt(document.getElementById('safeThreshold').value);
-    const warningThreshold = parseInt(document.getElementById('warningThreshold').value);
-    const dangerThreshold = parseInt(document.getElementById('dangerThreshold').value);
-    document.getElementById('thresholdSafe').textContent = safeThreshold;
-    document.getElementById('thresholdWarning').textContent = warningThreshold;
-    document.getElementById('thresholdDanger').textContent = dangerThreshold;
+    const safe = safeThresholdInput.valueAsNumber;
+    const warning = warningThresholdInput.valueAsNumber;
+    const danger = dangerThresholdInput.valueAsNumber;
+    if (!(0 <= safe && safe < warning && warning < danger && danger <= LEVEL_REFERENCE)) {
+        safeThresholdInput.value = thresholds.safe;
+        warningThresholdInput.value = thresholds.warning;
+        dangerThresholdInput.value = thresholds.danger;
+        addLog('Les seuils doivent être croissants et compris entre 0 et 94.', true);
+        return;
+    }
+
+    thresholds = { safe, warning, danger };
+    document.getElementById('thresholdSafe').textContent = safe;
+    document.getElementById('thresholdWarning').textContent = warning;
+    document.getElementById('thresholdDanger').textContent = danger;
 }
 
-document.getElementById('warningThreshold').addEventListener('change', updateThresholdValues);
-document.getElementById('dangerThreshold').addEventListener('change', updateThresholdValues);
-document.getElementById('safeThreshold').addEventListener('change', updateThresholdValues);
+warningThresholdInput.addEventListener('change', updateThresholdValues);
+dangerThresholdInput.addEventListener('change', updateThresholdValues);
+safeThresholdInput.addEventListener('change', updateThresholdValues);
 
 async function startMonitoring() {
+    if (audioContext || document.hidden) return;
+
+    let context;
     bilanBtn.disabled = true;
+    permissionPrompt.classList.remove('active');
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    statusLabel.textContent = 'Démarrage…';
+
     try {
-        permissionPrompt.classList.remove('active');
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
+        context = new (window.AudioContext || window.webkitAudioContext)();
+        audioContext = context;
 
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (context.state === 'suspended') await context.resume();
+        if (audioContext !== context) return;
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
+            }
+        });
+        if (audioContext !== context) {
+            stream.getTracks().forEach(track => track.stop());
+            return;
         }
 
-        if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-            addLog('AudioContext repris');
-        }
+        audioStream = stream;
+        microphone = context.createMediaStreamSource(stream);
+        analyser = context.createAnalyser();
+        analyser.fftSize = 512;
+        microphone.connect(analyser);
+        dataArray = new Uint8Array(analyser.fftSize);
 
-        if (!microphone) {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: false
-                }
-            });
-
-            microphone = audioContext.createMediaStreamSource(stream);
-            
-            analyser = audioContext.createAnalyser();
-            analyser.fftSize = 512;
-            analyser.smoothingTimeConstant = 0.3;
-            
-            microphone.connect(analyser);
-            bufferLength = analyser.frequencyBinCount;
-            dataArray = new Uint8Array(bufferLength);
-        }
+        sessionStats = { readings: 0, levelSum: 0, peak: 0 };
+        levelHistory.length = 0;
+        exceedanceCount = 0;
+        exceedanceDuration = 0;
+        exceedanceStartTime = null;
+        lastNotificationTime = -Infinity;
+        document.getElementById('bilanSection').style.display = 'none';
 
         isMonitoring = true;
-        addLog('Monitoring demarre');
+        addLog('Mesure démarrée');
         monitor();
     } catch (error) {
+        if (context && audioContext !== context) return;
+        releaseMicrophone();
         addLog(`Erreur: ${error.message}`, true);
         startBtn.disabled = false;
         stopBtn.disabled = true;
+        bilanBtn.disabled = !sessionStats?.readings;
+        statusLabel.textContent = 'Micro indisponible';
         if (error.name === 'NotAllowedError') {
             permissionPrompt.classList.add('active');
         }
     }
 }
 
-function stopMonitoring() {
-    bilanBtn.disabled = false;
+function releaseMicrophone() {
     isMonitoring = false;
-    if (animationFrameId) {
+    if (animationFrameId !== null) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
     }
-    if (exceedanceStartTime !== null) {
-        exceedanceDuration += Date.now() - exceedanceStartTime;
-        exceedanceStartTime = null;
+    const context = audioContext;
+    audioContext = null;
+    audioStream?.getTracks().forEach(track => track.stop());
+    microphone?.disconnect();
+    audioStream = microphone = analyser = dataArray = null;
+    if (context && context.state !== 'closed') {
+        context.close().catch(error => console.warn('Fermeture du contexte audio', error));
     }
-    
-    const email = document.getElementById('emailInput').value;
-    if (email && dailyStats.totalReadings > 0) {
-        sendDailyReport(email);
-    }
-    
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-    statusIndicator.className = 'status-indicator safe';
-    statusLabel.textContent = 'Arrete';
-    addLog('Monitoring arrete');
 }
 
-function calculateDecibels() {
+function stopMonitoring() {
+    if (!audioContext) return;
+
+    releaseMicrophone();
+    if (exceedanceStartTime !== null) {
+        exceedanceDuration += performance.now() - exceedanceStartTime;
+        exceedanceStartTime = null;
+    }
+    exceedanceDurationEl.textContent = formatDuration(exceedanceDuration);
+
+    bilanBtn.disabled = !sessionStats?.readings;
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    document.querySelector('.main-card').style.animation = 'none';
+    statusIndicator.className = 'status-indicator safe';
+    statusLabel.textContent = 'Arrêté';
+    addLog('Mesure arrêtée');
+}
+
+function calculateEstimatedLevel() {
     analyser.getByteTimeDomainData(dataArray);
     let sum = 0;
-    for (let i = 0; i < bufferLength; i++) {
+    for (let i = 0; i < dataArray.length; i++) {
         const normalized = (dataArray[i] - 128) / 128;
         sum += normalized * normalized;
     }
-    const rms = Math.sqrt(sum / bufferLength);
-    const db = 20 * Math.log10(Math.max(rms, 0.00001)) + 94;
-    return Math.max(0, Math.min(db, 130));
+    const rms = Math.sqrt(sum / dataArray.length);
+    const db = 20 * Math.log10(Math.max(rms, 0.00001)) + LEVEL_REFERENCE;
+    return Math.max(0, db);
 }
 
-async function sendDailyReport(email) {
-    if (!email) return;
-    const now = new Date();
-    const reportContent = `Rapport Journalier Insonea - ${dailyStats.date}\n\nStatistiques:\n• Min: ${dailyStats.minLevel.toFixed(1)} dB\n• Max: ${dailyStats.maxLevel.toFixed(1)} dB\n• Moy: ${dailyStats.avgLevel.toFixed(1)} dB\n• Pic: ${dailyStats.peakLevel.toFixed(1)} dB\n\nDepassements: ${dailyStats.exceedanceCount}\nDuree: ${Math.floor(dailyStats.exceedanceDuration / 1000)}s`;
-    try {
-        await fetch('/api/send-notification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                email, 
-                subject: `Rapport Insonea - ${dailyStats.date}`, 
-                message: reportContent, 
-                timestamp: new Date().toISOString() 
-            })
-        });
-        addLog(`Rapport envoye a ${email}`);
-    } catch (error) {
-        console.error('Erreur rapport:', error);
-    }
+function formatDuration(durationMs) {
+    const seconds = Math.floor(durationMs / 1000);
+    if (seconds < 60) return `${(durationMs / 1000).toFixed(1)} s`;
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const prefix = hours ? `${hours} h ` : '';
+    return `${prefix}${minutes % 60} min ${seconds % 60} s`;
 }
-
-let lastNotificationTime = {};
-let animationFrameId = null;
-let notificationPending = false;
 
 function monitor() {
     if (!isMonitoring) return;
 
-    const currentLevel = calculateDecibels();
+    const currentLevel = calculateEstimatedLevel();
+    const now = performance.now();
     levelHistory.push(currentLevel);
-    if (levelHistory.length > MAX_HISTORY) {
-        levelHistory.shift();
-    }
+    if (levelHistory.length > MAX_HISTORY) levelHistory.shift();
 
-    const safeThreshold = parseInt(document.getElementById('safeThreshold').value);
-    const warningThreshold = parseInt(document.getElementById('warningThreshold').value);
-    const dangerThreshold = parseInt(document.getElementById('dangerThreshold').value);
-    
-    const bgColor = getBackgroundColor(
-        currentLevel,
-        safeThreshold,
-        warningThreshold,
-        dangerThreshold
-    );
-
-    
+    const { safe, warning, danger } = thresholds;
+    const bgColor = getBackgroundColor(currentLevel, safe, warning, danger);
     const mainCard = document.querySelector('.main-card');
+    mainCard.style.background = `linear-gradient(160deg, ${bgColor}, rgba(0, 0, 0, 0.25))`;
+    mainCard.style.boxShadow = `0 0 25px ${bgColor}55, 0 0 60px ${bgColor}22`;
 
-    mainCard.style.background = `linear-gradient(
-        160deg,
-        ${bgColor},
-        rgba(0, 0, 0, 0.25)
-    )`;
-
-    mainCard.style.boxShadow = `
-        0 0 25px ${bgColor}55,
-        0 0 60px ${bgColor}22
-    `;
-
-    peakLevel = Math.max(...levelHistory);
-    const average = levelHistory.reduce((a, b) => a + b) / levelHistory.length;
-
+    const peakLevel = Math.max(...levelHistory);
+    const average = levelHistory.reduce((sum, level) => sum + level, 0) / levelHistory.length;
     dbValue.textContent = currentLevel.toFixed(1);
     peakValueEl.textContent = `${peakLevel.toFixed(1)} dB`;
     averageValueEl.textContent = `${average.toFixed(1)} dB`;
-    
-    exceedanceCountEl.textContent = exceedanceCount;
-    const totalDuration = exceedanceDuration + (exceedanceStartTime !== null ? Date.now() - exceedanceStartTime : 0);
-    const totalMs = Math.floor(totalDuration);
-    const centiseconds = Math.floor((totalMs % 1000) / 10);
-    const seconds = Math.floor(totalMs / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    
-    if (hours > 0) {
-        exceedanceDurationEl.textContent = `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-    } else if (minutes > 0) {
-        exceedanceDurationEl.textContent = `${minutes}m ${seconds % 60}s`;
-    } else if (seconds > 0) {
-        exceedanceDurationEl.textContent = `${seconds}.${String(centiseconds).padStart(2, '0')}s`;
-    } else {
-        exceedanceDurationEl.textContent = `${centiseconds}cs`;
-    }
-    
-    dailyStats.totalReadings++;
-    dailyStats.levelSum += currentLevel;
-    dailyStats.minLevel = Math.min(dailyStats.minLevel, currentLevel);
-    dailyStats.maxLevel = Math.max(dailyStats.maxLevel, currentLevel);
-    dailyStats.peakLevel = Math.max(dailyStats.peakLevel, currentLevel);
 
+    sessionStats.readings++;
+    sessionStats.levelSum += currentLevel;
+    sessionStats.peak = Math.max(sessionStats.peak, currentLevel);
 
-    let status = 'safe';
-    let label = 'Sur';
-    
-    const isAboveThreshold = currentLevel >= warningThreshold;
-    
+    const isAboveThreshold = currentLevel >= warning;
     if (isAboveThreshold && exceedanceStartTime === null) {
-        exceedanceStartTime = Date.now();
-        if (currentLevel >= dangerThreshold) {
-            exceedanceCount++;
-            dailyStats.exceedanceCount = exceedanceCount;
-            lastExceedanceThreshold = dangerThreshold;
-        } else if (lastExceedanceThreshold !== dangerThreshold) {
-            exceedanceCount++;
-            dailyStats.exceedanceCount = exceedanceCount;
-            lastExceedanceThreshold = warningThreshold;
-        }
+        exceedanceStartTime = now;
+        exceedanceCount++;
     } else if (!isAboveThreshold && exceedanceStartTime !== null) {
-        exceedanceDuration += Date.now() - exceedanceStartTime;
+        exceedanceDuration += now - exceedanceStartTime;
         exceedanceStartTime = null;
     }
-    if (currentLevel >= dangerThreshold) {
+    const currentDuration = exceedanceStartTime === null ? 0 : now - exceedanceStartTime;
+    exceedanceCountEl.textContent = exceedanceCount;
+    exceedanceDurationEl.textContent = formatDuration(exceedanceDuration + currentDuration);
+
+    let status = 'safe';
+    let label = 'Sous le seuil';
+    mainCard.style.animation = 'none';
+    if (currentLevel >= danger) {
         mainCard.style.animation = 'pulse 1.2s infinite';
-    } else {
-        mainCard.style.animation = 'none';
-    }
-    if (currentLevel >= dangerThreshold) {
         status = 'danger';
-        label = 'DANGER';
-        const now = Date.now();
-        if (!lastNotificationTime['danger'] || now - lastNotificationTime['danger'] > 30000) {
-            if (!notificationPending) {
-                notificationPending = true;
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    new Notification('DANGER', { 
-                        body: `${Math.round(currentLevel)} dB`, 
-                        tag: 'insonea-alert' 
-                    });
-                }
-                lastNotificationTime['danger'] = now;
-                setTimeout(() => { notificationPending = false; }, 100);
+        label = 'Seuil haut atteint';
+        if ('Notification' in window && Notification.permission === 'granted' && now - lastNotificationTime >= 30000) {
+            lastNotificationTime = now;
+            try {
+                new Notification('Seuil haut atteint', {
+                    body: `Niveau sonore estimé : ${Math.round(currentLevel)} dB`,
+                    tag: 'insonea-alert'
+                });
+            } catch (error) {
+                console.warn('Notifications indisponibles', error);
             }
         }
-    } else if (currentLevel >= warningThreshold) {
+    } else if (isAboveThreshold) {
         status = 'warning';
-        label = 'ALERTE';
+        label = 'Alerte';
     }
 
     statusIndicator.className = `status-indicator ${status}`;
@@ -331,7 +288,7 @@ function monitor() {
     const bars = visualization.querySelectorAll('.bar');
     bars.forEach((bar, index) => {
         const value = levelHistory[index] || 0;
-        const percentage = (value / 130) * 100;
+        const percentage = (value / LEVEL_REFERENCE) * 100;
         bar.style.height = `${Math.max(5, percentage)}%`;
     });
 
@@ -377,21 +334,12 @@ function toggleSettings() {
 updateThresholdValues();
 
 function generateBilan() {
-    const durationMs = exceedanceDuration;
-    const durationSec = Math.floor(durationMs / 1000);
+    if (audioContext || !sessionStats?.readings) return;
 
-    const avg = dailyStats.levelSum / Math.max(1, dailyStats.totalReadings);
-
-    document.getElementById('bilanDuration').textContent = `${durationSec}s`;
-    document.getElementById('bilanAverage').textContent = `${avg.toFixed(1)} dB`;
-    document.getElementById('bilanPeak').textContent = `${dailyStats.peakLevel.toFixed(1)} dB`;
-    document.getElementById('bilanExceedances').textContent = dailyStats.exceedanceCount;
-
-    let verdict = 'Exposition maitrisee';
-    if (dailyStats.exceedanceCount > 5) verdict = 'Attention a l\'exposition';
-    if (dailyStats.exceedanceCount > 15) verdict = 'Risque auditif eleve';
-
-    document.getElementById('bilanVerdict').textContent = verdict;
-
+    const average = sessionStats.levelSum / sessionStats.readings;
+    document.getElementById('bilanDuration').textContent = formatDuration(exceedanceDuration);
+    document.getElementById('bilanAverage').textContent = `${average.toFixed(1)} dB`;
+    document.getElementById('bilanPeak').textContent = `${sessionStats.peak.toFixed(1)} dB`;
+    document.getElementById('bilanExceedances').textContent = exceedanceCount;
     document.getElementById('bilanSection').style.display = 'block';
 }

@@ -8,11 +8,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Insonea">
     <link rel="apple-touch-icon" href="icon-192 2.png">
-    <meta name="description" content="Insonea - Détecteur de niveaux sonores pour protéger votre audition">
+    <meta name="description" content="Insonea estime le niveau sonore avec le micro et résume les dépassements de seuil par session.">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="INsonea-logo 2.png">
     <link rel="stylesheet" href="styles.css">
-    <title>Insonea - Détecteur de Décibels</title>
+    <title>Insonea - Niveau sonore estimé</title>
 </head>
 <body>
     <div class="container">
@@ -23,7 +23,7 @@
                 </div>
             </div>
             <h1>IN<span>sonea</span></h1>
-            <p>Détecteur de niveaux sonores</p>
+            <p>Suivi du bruit ambiant</p>
         </header>
 
         <div class="install-prompt" id="installPrompt">
@@ -50,7 +50,7 @@
         </div>
 
         <div class="main-card">
-            <div class="meter-label">NIVEAU SONORE</div>
+            <div class="meter-label">NIVEAU SONORE ESTIMÉ</div>
             <div class="db-display" id="dbValue">0</div>
             <div class="db-unit">dB</div>
             
@@ -70,11 +70,11 @@
 
         <div class="info-grid">
             <div class="info-box">
-                <div class="label">Pic</div>
+                <div class="label">Pic récent</div>
                 <div class="value" id="peakValue">0 dB</div>
             </div>
             <div class="info-box">
-                <div class="label">Moyenne</div>
+                <div class="label">Moyenne récente</div>
                 <div class="value" id="averageValue">0 dB</div>
             </div>
         </div>
@@ -86,34 +86,29 @@
         <div class="settings-section" id="settingsSection">
             <h3> Configuration</h3>
             <div class="input-group">
-                <label for="warningThreshold">🟠 Seuil Alerte (dB)</label>
-                <input type="number" id="warningThreshold" value="85" min="60" max="130" step="1">
+                <label for="warningThreshold">Seuil d’alerte (dB estimés)</label>
+                <input type="number" id="warningThreshold" value="85" min="1" max="93" step="1">
             </div>
             <div class="input-group">
-                <label for="dangerThreshold">🔴 Seuil Danger (dB)</label>
-                <input type="number" id="dangerThreshold" value="100" min="60" max="130" step="1">
+                <label for="dangerThreshold">Seuil haut (dB estimés)</label>
+                <input type="number" id="dangerThreshold" value="90" min="2" max="94" step="1">
             </div>
             <div class="input-group">
-                <label for="safeThreshold">🟢 Seuil Safe (dB)</label>
-                <input type="number" id="safeThreshold" value="65" min="30" max="120" step="1">
+                <label for="safeThreshold">Repère bas (dB estimés)</label>
+                <input type="number" id="safeThreshold" value="65" min="0" max="92" step="1">
             </div>
-            <div class="input-group">
-                <label for="emailInput">Email Rapport</label>
-                <input type="email" id="emailInput" placeholder="email@exemple.com">
-            </div>
-
             <div class="threshold-display">
                 <div class="threshold-box">
-                    <div class="label safe"> Safe</div>
-                    <div class="value safe" id="thresholdSafe">85</div>
+                    <div class="label safe">Repère bas</div>
+                    <div class="value safe" id="thresholdSafe">65</div>
                 </div>
                 <div class="threshold-box">
                     <div class="label warn"> Alerte</div>
                     <div class="value warn" id="thresholdWarning">85</div>
                 </div>
                 <div class="threshold-box">
-                    <div class="label danger"> Danger</div>
-                    <div class="value danger" id="thresholdDanger">100</div>
+                    <div class="label danger">Seuil haut</div>
+                    <div class="value danger" id="thresholdDanger">90</div>
                 </div>
             </div>
         </div>
@@ -121,32 +116,27 @@
         <div class="log-section" id="logSection">
             <div class="log-item">En attente de démarrage...</div>
         </div>
-            <div class="bilan-section" id="bilanSection">
-        <h3> Bilan du monitoring</h3>
-
-        <div class="bilan-grid">
-            <div class="bilan-item">
-                <span> Durée</span>
-                <strong id="bilanDuration">–</strong>
-            </div>
-            <div class="bilan-item">
-                <span> Moyenne</span>
-                <strong id="bilanAverage">–</strong>
-            </div>
-            <div class="bilan-item">
-                <span> Pic</span>
-                <strong id="bilanPeak">–</strong>
-            </div>
-            <div class="bilan-item">
-                <span> Dépassements</span>
-                <strong id="bilanExceedances">–</strong>
-            </div>
-            <div class="bilan-item full">
-                <span> Verdict</span>
-                <strong id="bilanVerdict">–</strong>
+        <div class="bilan-section" id="bilanSection">
+            <h3>Bilan de la session · niveaux estimés</h3>
+            <div class="bilan-grid">
+                <div class="bilan-item">
+                    <span>Durée au-dessus du seuil d’alerte</span>
+                    <strong id="bilanDuration">-</strong>
+                </div>
+                <div class="bilan-item">
+                    <span>Moyenne de la session</span>
+                    <strong id="bilanAverage">-</strong>
+                </div>
+                <div class="bilan-item">
+                    <span>Pic de la session</span>
+                    <strong id="bilanPeak">-</strong>
+                </div>
+                <div class="bilan-item">
+                    <span>Dépassements</span>
+                    <strong id="bilanExceedances">-</strong>
+                </div>
             </div>
         </div>
-    </div>
     </div>
     <script src="script.js"></script>
     <script src="service.js"></script>
